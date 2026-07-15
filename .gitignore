@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+.pytest_cache/
+tests/.runtime/
+.coverage
+data/*.db
+data/backups/
+temp/*
+!temp/.gitkeep
+!temp/.judge/
+temp/.judge/*
+!temp/.judge/.gitkeep
+.idea/
+.vscode/
+test.py
