@@ -13,3 +13,5 @@ temp/.judge/*
 .idea/
 .vscode/
 test.py
+alembic.ini
+migrations
