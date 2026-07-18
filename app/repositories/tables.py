@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
@@ -13,9 +12,8 @@ from sqlalchemy import CheckConstraint
 from sqlalchemy.orm import Mapped, mapped_column, validates
 
 from .database import Base
-
-def time_now():
-    return datetime.now(timezone.utc)
+from datetime import datetime
+from app.services.time import time_now
 
 class User(Base):
     __tablename__ = "users"

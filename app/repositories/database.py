@@ -4,8 +4,8 @@ from pathlib import Path
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-BACKUP_DIR = Path(os.getenv("OJ_BACKUP_DIR", Path(__file__).resolve().parents[2] / "data" / "backups"))
-DB_PATH = Path(os.getenv("OJ_DB_PATH", Path(__file__).resolve().parents[2] / "data" / "oj.db"))
+BACKUP_DIR = Path(__file__).resolve().parents[2] / "data" / "backups"
+DB_PATH = Path(__file__).resolve().parents[2] / "data" / "oj.db"
 
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 BACKUP_DIR.mkdir(parents=True, exist_ok=True)

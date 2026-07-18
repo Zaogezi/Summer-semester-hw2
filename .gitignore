@@ -15,3 +15,4 @@ temp/.judge/*
 test.py
 alembic.ini
 migrations
+temp
