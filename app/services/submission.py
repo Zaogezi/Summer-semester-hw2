@@ -1,5 +1,6 @@
 import asyncio
 from pathlib import Path
+from tempfile import gettempdir
 
 from sqlalchemy import delete
 
@@ -10,8 +11,8 @@ from app.utils.common import time_now
 
 from fastapi import HTTPException
 
-TEMP_ROOT = Path(__file__).resolve().parents[2] / "temp"
-TEMP_ROOT.mkdir(exist_ok=True)
+TEMP_ROOT = Path(gettempdir()) / "light-oj"
+TEMP_ROOT.mkdir(parents=True, exist_ok=True)
 
 
 def start_judge(submission_id: str) -> None:

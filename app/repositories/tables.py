@@ -13,7 +13,7 @@ from sqlalchemy.orm import Mapped, mapped_column, validates
 
 from .database import Base
 from datetime import datetime
-from app.services.time import time_now
+from app.utils.common import time_now
 
 class User(Base):
     __tablename__ = "users"
@@ -37,6 +37,7 @@ class Problem(Base):
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
     title: Mapped[str] = mapped_column(String(100))
     description: Mapped[str] = mapped_column(Text)
+    constraints: Mapped[str] = mapped_column(Text, default="")
     input_description: Mapped[str] = mapped_column(Text)
     output_description: Mapped[str] = mapped_column(Text)
     samples: Mapped[list[dict[str, str]]] = mapped_column(JSON)

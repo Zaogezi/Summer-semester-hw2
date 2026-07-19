@@ -10,9 +10,7 @@ from app.repositories.tables import JudgeLog, Problem, Submission, User
 from app.services.auth import current_user,teacher
 from app.services.logs import audit, log_view
 from app.services.submission import start_judge
-from app.utils.common import model_dict, page_data, response
-
-from utils.common import page_query
+from app.utils.common import model_dict, page_data, response,page_query
 
 submission_router = APIRouter(prefix="/submissions")
 

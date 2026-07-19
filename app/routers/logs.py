@@ -8,9 +8,7 @@ from app.repositories.database import get_db
 from app.repositories.tables import AuditLog, JudgeLog, Submission, User
 from app.services.auth import admin, teacher
 from app.services.logs import audit, log_view
-from app.utils.common import model_dict, page_data, response
-
-from utils.common import page_query
+from app.utils.common import model_dict, page_data, response,page_query
 
 logs_router = APIRouter(prefix="/logs")
 
@@ -20,11 +18,10 @@ async def logs(page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=1
     for field, value in ((JudgeLog.submission_id,submission_id),(Submission.problem_id,problem_id),(Submission.user_id,user_id),(JudgeLog.result,result)):
         if value:
             statement = statement.where(field == value)
-        if start_time:
+    if start_time:
             statement = statement.where(JudgeLog.created_at >= start_time)
-        if end_time:
+    if end_time:
             statement = statement.where(JudgeLog.created_at <= end_time)
-        return statement
     items, total = page_query(db, statement.order_by(JudgeLog.created_at.desc()), page, page_size)
     audit(db, user.id, "VIEW_FULL_JUDGE_LOG", "log_search", submission_id or "all")
     db.commit()

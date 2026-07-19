@@ -6,9 +6,7 @@ from app.models.schemas import ProblemData
 from app.repositories.database import get_db
 from app.repositories.tables import Problem,User
 from app.services.auth import current_user, teacher
-from app.utils.common import model_dict, page_data, response
-
-from utils.common import page_query
+from app.utils.common import model_dict, page_data, response,page_query
 problems_router = APIRouter(prefix="/problems")
 
 

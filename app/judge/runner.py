@@ -8,7 +8,13 @@ from app.utils.common import truncate
 
 
 def normalized(value: str) -> str:
-    return "\n".join(line.rstrip(" \t") for line in value.replace("\r\n", "\n").replace("\r", "\n").split("\n")).rstrip("\n")
+    value = value.replace("\r\n","\n").replace("\r","\n")
+    lines = []
+    for line in value.strip("\n"):
+        lines.append(line.rstrip(" \t"))
+    value = "\n".join(lines)
+    value = value.rstrip("\n")
+    return value
 
 
 def judge(source_code: str, test_cases: list[dict], time_limit: float, temp_root: Path) -> dict:
@@ -43,18 +49,29 @@ def judge(source_code: str, test_cases: list[dict], time_limit: float, temp_root
                 exit_code = process.returncode
             except subprocess.TimeoutExpired as error:
                 used = time.perf_counter() - started
-                result, stdout, stderr = "TLE", "", (error.stderr or b"").decode("utf-8", errors="replace")
+                result, stdout, stderr = "TLE", "", ""
                 message, exit_code = "运行超时", None
             results.append({
-                "case_id": case["case_id"], "result": result,
+                "case_id": case["case_id"], 
+                "result": result,
                 "score": case["score"] if result == "AC" else 0,
-                "time_used": round(used, 4), "exit_code": exit_code,
-                "input_data": truncate(case["input"]), "stdout": truncate(stdout),
-                "stderr": truncate(stderr), "expected_output": truncate(case["output"]),
-                "message": message, "is_hidden": case["is_hidden"],
+                "time_used": round(used, 4), 
+                "exit_code": exit_code,
+                "input_data": truncate(case["input"]), 
+                "stdout": truncate(stdout),
+                "stderr": truncate(stderr), 
+                "expected_output": truncate(case["output"]),
+                "message": message, 
+                "is_hidden": case["is_hidden"],
             })
             if result in {"RE", "TLE"}:
                 break
-    priority = next((name for name in ("TLE", "RE", "WA") if any(item["result"] == name for item in results)), "AC")
-    return {"result": priority, "score": sum(item["score"] for item in results), "total_time": round(sum(item["time_used"] for item in results), 4), "cases": results}
-
+    result_type = "AC"
+    for name in ["TLE", "RE", "WA"]:
+        if result_type != "AC": 
+            break
+        for item in results:
+            if item["result"] == name: 
+                result_type = name
+                break
+    return {"result": result_type, "score": sum(item["score"] for item in results), "total_time": round(sum(item["time_used"] for item in results), 4), "cases": results}

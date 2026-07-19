@@ -11,7 +11,7 @@ from app.repositories.database import Base, SessionLocal, engine
 from app.repositories.tables import JudgeLog, Problem, Submission, User
 from app.routers.api import router
 from app.services.auth import password_hash
-from app.services.time import time_now
+from app.utils.common import time_now
 from app.utils.common import response
 
 
@@ -30,7 +30,7 @@ async def lifespan(_: FastAPI):
     yield
 
 
-app = FastAPI(title="Lite OJ", lifespan=lifespan)
+app = FastAPI(title="Light OJ", lifespan=lifespan)
 app.add_middleware(SessionMiddleware, secret_key="secret-key") # to be replaced
 
 
@@ -48,4 +48,4 @@ async def validation_error(_: Request, exc: RequestValidationError):
 
 
 app.include_router(router)
-app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
+#app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")

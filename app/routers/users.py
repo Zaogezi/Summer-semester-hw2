@@ -7,9 +7,7 @@ from app.repositories.database import get_db
 from app.repositories.tables import User
 from app.services.auth import admin
 from app.services.logs import audit
-from app.utils.common import model_dict, page_data, response
-from utils.common import page_query
-
+from app.utils.common import model_dict, page_data, response,page_query
 users_router = APIRouter(prefix="/users")
 
 @users_router.get("")
