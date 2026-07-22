@@ -261,7 +261,12 @@ async function renderSubmission(id) {
         <span class="eyebrow">Submission Detail</span>
         <h1>提交 ${esc(id.slice(0, 8))}</h1>
       </div>
-      ${verdict(detail.result, detail.status)}
+      <div class="section-actions">
+        ${verdict(detail.result, detail.status)}
+        ${["teacher", "admin"].includes(state.user.role) && ["finished", "failed"].includes(detail.status)
+          ? html`<button class="button primary" data-action="rejudge" data-id="${esc(detail.id)}">重新评测</button>`
+          : ""}
+      </div>
     </div>
     <div class="stats-grid">
       <div class="card stat-card">
@@ -596,6 +601,13 @@ document.addEventListener("click", async (e) => {
       location.hash = "#/submissions/" + data.submission_id;
     }
     if (action === "problem-form") await openProblemForm(el.dataset.id);
+    if (action === "rejudge") {
+      el.disabled = true;
+      el.textContent = "提交中…";
+      await api(`/submissions/${encodeURIComponent(el.dataset.id)}/rejudge`, { method: "POST" });
+      toast("已进入重评队列");
+      renderSubmission(el.dataset.id);
+    }
     if (action === "delete-problem") {
       if (confirm(`确定删除题目 ${el.dataset.id}？此操作不可撤销。`)) {
         await api("/problems/" + el.dataset.id, { method: "DELETE" });
