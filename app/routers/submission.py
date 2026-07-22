@@ -85,5 +85,11 @@ async def submission_logs(submission_id: str, db: Session = Depends(get_db), use
     if full:
         audit(db, user.id, "VIEW_FULL_JUDGE_LOG", "submission", submission.id)
         db.commit()
+    cases = []
+    for item in logs:
+        view = log_view(item, full)
+        if view:
+            cases.append(view)
+            
     return response(data={"submission": model_dict(submission), 
-                          "cases": [log_view(item, full) for item in logs]})
+                          "cases": cases})
