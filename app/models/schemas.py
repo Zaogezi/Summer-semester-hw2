@@ -5,6 +5,8 @@ from pydantic import BaseModel, Field, model_validator
 
 from fastapi import HTTPException
 
+from app.services.problems import valid_spj
+
 class Credentials(BaseModel):
     username: str = Field(min_length=3, max_length=32)
     password: str = Field(min_length=8)
@@ -41,6 +43,8 @@ class ProblemData(BaseModel):
     difficulty: Literal["easy", "medium", "hard"]
     tags: list[str] = []
     test_cases: list[TestCase] = Field(min_length=1)
+    judge_mode: Literal["standard","strict","spj"]
+    spj: str = ""
 
     @model_validator(mode="after")
     def validate_problem(self):
@@ -51,6 +55,8 @@ class ProblemData(BaseModel):
             raise HTTPException(status_code=422, detail="测试点编号不能重复")
         if sum([case.score for case in self.test_cases]) != 100:
             raise HTTPException(status_code=422, detail="测试点分值总和必须为 100")
+        #if self.judge_mode == "spj" and not valid_spj(self.spj):
+        #    raise HTTPException(status_code=422, detail="special judge不符合约定")
         return self
 
 

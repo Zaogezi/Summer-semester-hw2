@@ -485,6 +485,8 @@ async function openProblemForm(id) {
             is_hidden: true,
           },
         ],
+        judge_mode: "standard",
+        spj: "",
       };
   openModal(
     html`<div class="modal-head">
@@ -518,7 +520,18 @@ async function openProblemForm(id) {
         </div>
         <div class="field"><label>样例（JSON 数组）</label><textarea name="samples" class="mono" required></textarea></div>
         <div class="field"><label>测试点（JSON 数组，分数总和必须为 100）</label><textarea name="test_cases" class="mono" style="min-height:180px" required></textarea></div>
-        <div class="modal-actions"><button type="button" class="button" data-close>取消</button><button class="button primary">保存题目</button></div>
+        <div class="form-row">
+          <div class="field">
+            <label>评测模式</label><select name="judge_mode">
+              <option value="standard" ${p.judge_mode === "standard" ? "selected" : ""}>standard（逐行忽略行末空白）</option>
+              <option value="strict" ${p.judge_mode === "strict" ? "selected" : ""}>strict（严格逐字符匹配）</option>
+              <option value="spj" ${p.judge_mode === "spj" ? "selected" : ""}>spj（自定义评测）</option>
+            </select>
+          </div>
+          <div class="field"><label>提示</label><span class="hint">选择 spj 时需在下方填写 special judge 代码</span></div>
+        </div>
+        <div class="field"><label>Special Judge 代码（仅 spj 模式必填，需定义 judge(input, output, expected) 返回 dict）</label><textarea name="spj" class="mono" style="min-height:160px">${esc(p.spj || "")}</textarea></div>
+        <div class="modal-actions"><button type="button" class="button" data-close>取消</button><button type="submit" class="button primary">保存题目</button></div>
       </form>`,
     true,
   );
@@ -528,6 +541,29 @@ async function openProblemForm(id) {
   form.elements.output_description.value = p.output_description;
   form.elements.samples.value = JSON.stringify(p.samples, null, 2);
   form.elements.test_cases.value = JSON.stringify(p.test_cases, null, 2);
+  form.addEventListener("submit", submitProblemForm);
+}
+async function submitProblemForm(e) {
+  e.preventDefault();
+  const form = e.currentTarget;
+  const v = Object.fromEntries(new FormData(form));
+  const body = {
+    ...v,
+    time_limit: Number(v.time_limit),
+    memory_limit: Number(v.memory_limit),
+    tags: v.tags
+      .split(/[,，]/)
+      .map((x) => x.trim())
+      .filter(Boolean),
+    samples: JSON.parse(v.samples),
+    test_cases: JSON.parse(v.test_cases),
+  };
+  const original = form.dataset.original;
+  await api("/problems" + (original ? "/" + encodeURIComponent(original) : ""), {
+    method: original ? "PUT" : "POST",
+    body: JSON.stringify(body),
+  });
+  toast("题目已保存");
 }
 function updateCodeSize() {
   const ed = document.querySelector("#code-editor"),
@@ -649,9 +685,10 @@ document.addEventListener("click", async (e) => {
   }
 });
 document.addEventListener("submit", async (e) => {
+  const form = e.target;
+  if (form.matches("#problem-form")) return;
   e.preventDefault();
-  const form = e.target,
-    button = form.querySelector("[type=submit],button:not([type])");
+  const button = form.querySelector("[type=submit],button:not([type])");
   if (button) button.disabled = true;
   try {
     if (form.id === "auth-form") {
@@ -669,32 +706,6 @@ document.addEventListener("submit", async (e) => {
       renderChrome();
       location.hash = "#/problems";
       toast(form.dataset.mode === "register" ? "注册成功，欢迎加入" : "登录成功");
-    }
-    if (form.id === "problem-form") {
-      const v = Object.fromEntries(new FormData(form));
-      let samples, test_cases;
-      try {
-        samples = JSON.parse(v.samples);
-        test_cases = JSON.parse(v.test_cases);
-      } catch {
-        throw new Error("样例或测试点不是有效的 JSON");
-      }
-      const body = {
-        ...v,
-        time_limit: Number(v.time_limit),
-        memory_limit: Number(v.memory_limit),
-        tags: v.tags
-          .split(/[,，]/)
-          .map((x) => x.trim())
-          .filter(Boolean),
-        samples,
-        test_cases,
-      };
-      const original = form.dataset.original;
-      await api("/problems" + (original ? "/" + encodeURIComponent(original) : ""), { method: original ? "PUT" : "POST", body: JSON.stringify(body) });
-      closeModal();
-      toast("题目已保存");
-      renderManage();
     }
     if (form.id === "user-form") {
       const fd = new FormData(form);

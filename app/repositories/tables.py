@@ -46,6 +46,8 @@ class Problem(Base):
     difficulty: Mapped[str] = mapped_column(String())
     tags: Mapped[list[str]] = mapped_column(JSON)
     test_cases: Mapped[list[dict[str, Any]]] = mapped_column(JSON)
+    judge_mode: Mapped[str] = mapped_column(String())
+    spj: Mapped[str] = mapped_column(Text,default="")
     
 class Submission(Base):
     __tablename__ = "submissions"

@@ -50,4 +50,14 @@ async def validation_error(_: Request, exc: RequestValidationError):
 
 app.include_router(router)
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
+
+
+@app.middleware("http")
+async def disable_static_cache(request: Request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/app.js") or request.url.path.startswith("/styles.css"):
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    return response
+
+
 app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")

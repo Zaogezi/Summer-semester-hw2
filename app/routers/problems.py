@@ -14,6 +14,7 @@ def problem_view(problem: Problem, full: bool) -> dict:
     item = model_dict(problem)
     if not full:
         item.pop("test_cases")
+        item.pop("spj")
     return item
 
 

@@ -9,7 +9,7 @@ from sqlalchemy.pool import StaticPool
 from app.main import app
 from app.repositories.database import Base, get_db
 from app.repositories.tables import User
-from app.repositories.problems import a_plus_b_problem
+from app.repositories.problems import a_plus_b_problem, a_plus_b_problem_SPJ
 from app.services.auth import password_hash
 
 from app.utils.common import model_dict
@@ -79,6 +79,9 @@ def student(client: TestClient) -> TestClient:
 def problem_data() -> dict:
     return model_dict(a_plus_b_problem)
 
+@pytest.fixture()
+def problem_data_spj() -> dict:
+    return model_dict(a_plus_b_problem_SPJ)
 
 def login(client: TestClient, username: str, password: str) -> None:
     response = client.post("/api/auth/login", 
@@ -216,3 +219,25 @@ def test_only_admin_can_list_users(client: TestClient, student: TestClient):
 
     assert response.status_code == 200
     assert response.json()["data"]["total"] == 3
+
+def test_SPJ_create_and_judge(
+    client: TestClient, problem_data_spj: dict
+):
+    login(client, "teacher", "teacher123")
+
+    created = client.post("/api/problems", json=problem_data_spj)
+    assert created.status_code == 201
+
+    created = client.post(
+        "/api/submissions",
+        json={
+            "problem_id": "P1002",
+            "language": "python",
+            "source_code": "s=int(input())\nprint(1,s-1)\n",
+        },
+    )
+    assert created.status_code == 202
+    submission_id = created.json()["data"]["submission_id"]
+
+    detail = client.get(f"/api/submissions/{submission_id}")
+    assert detail.status_code == 200

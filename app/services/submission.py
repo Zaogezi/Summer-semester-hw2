@@ -4,7 +4,7 @@ from tempfile import gettempdir
 
 from sqlalchemy import delete
 
-from app.judge.runner import judge
+from app.judge.runner import special_judge, normal_judge
 from app.repositories.database import SessionLocal
 from app.repositories.tables import JudgeLog, Problem, Submission
 from app.utils.common import time_now
@@ -32,7 +32,10 @@ async def run_judge(submission_id: str) -> None:
         db.commit()
         source_code, cases, limit = submission.source_code, problem.test_cases, problem.time_limit
     try:
-        result = await asyncio.to_thread(judge, source_code, cases, limit, TEMP_ROOT)
+        if problem.judge_mode == "spj":
+            result = await asyncio.to_thread(special_judge, source_code, cases, limit, TEMP_ROOT, problem.spj)
+        else:
+            result = await asyncio.to_thread(normal_judge, source_code, cases, limit, TEMP_ROOT, problem.judge_mode)
         with SessionLocal() as db:
             submission = db.get(Submission, submission_id)
             db.execute(delete(JudgeLog).where(JudgeLog.submission_id == submission_id))
