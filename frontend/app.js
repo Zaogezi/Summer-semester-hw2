@@ -508,8 +508,14 @@ async function renderAdmin(auditPage = 1) {
                   <td>${u.is_active ? '<span class="verdict AC">正常</span>' : '<span class="verdict WA">已禁用</span>'}</td>
                   <td class="meta">${fmt(u.created_at)}</td>
                   <td>
-                    <button class="button small" data-action="" data-user="">
-                      点击设置
+                    <button
+                      type="button"
+                      class="button small"
+                      data-action="edit-user"
+                      data-user="${esc(JSON.stringify(u))}"
+                      aria-label="设置用户 ${esc(u.username)}"
+                    >
+                      设置
                     </button>
                   </td>
                 </tr>`,
@@ -538,7 +544,7 @@ async function renderAdmin(auditPage = 1) {
                       <td>${fmt(b.created_at)}</td>
                       <td>
                         <button class="button small" data-action="restore-backup" data-backup="${esc(b.id)}">
-                          点击恢复备份
+                          恢复备份
                         </button>
                       </td>
                     </tr>`,
@@ -844,7 +850,7 @@ document.addEventListener("click", async (e) => {
             <h2>设置用户 · ${esc(u.username)}</h2>
             <button class="close" data-close>×</button>
           </div>
-          <form id="user-form" data-id="${u.id}">
+          <form id="user-form" data-id="${esc(u.id)}">
             <div class="field">
               <label>角色</label><select name="role">
                 <option value="student" ${u.role === "student" ? "selected" : ""}>学生</option>
@@ -855,7 +861,7 @@ document.addEventListener("click", async (e) => {
             <div class="field">
               <label><input type="checkbox" name="is_active" ${u.is_active ? "checked" : ""} style="width:auto" /> 账号启用</label>
             </div>
-            <div class="modal-actions"><button type="button" class="button" data-close>取消</button><button class="button primary">保存设置</button></div>
+            <div class="modal-actions"><button type="button" class="button" data-close>取消</button><button type="submit" class="button primary">保存设置</button></div>
           </form>`,
       );
     }
