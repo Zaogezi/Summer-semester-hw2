@@ -32,7 +32,7 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="Light OJ", lifespan=lifespan)
-app.add_middleware(SessionMiddleware, secret_key="secret-key") # to be replaced
+app.add_middleware(SessionMiddleware, secret_key="9f3c7a1e5b4d2f8c6a0e7b3d5f9c2a1e8b4d6f3c7a9e2b5d8f1c4a7e3b6d9f2")
 
 
 @app.exception_handler(HTTPException)

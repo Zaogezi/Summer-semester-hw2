@@ -16,3 +16,5 @@ test.py
 alembic.ini
 migrations
 temp
+__pycache__
+.agents

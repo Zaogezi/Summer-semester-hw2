@@ -23,7 +23,7 @@ a_plus_b_problem = Problem(
 
 a_plus_b_problem_SPJ = Problem(
     id="P1002",
-    title="A+B Problem (SPJ version)", 
+    title="A+B Problem (special judge)", 
     description="给定两个数的和，输出任意两个符合要求的整数",
     input_description="一个整数s", 
     output_description="空格分隔的两个整数，使它们的和为s",
