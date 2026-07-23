@@ -81,7 +81,7 @@ async def rejudge(submission_id: str, db: Session = Depends(get_db), user: User 
 async def submission_logs(submission_id: str, db: Session = Depends(get_db), user: User = Depends(current_user)):
     submission = get_submission(db, submission_id, user)
     full = user.role in {"teacher", "admin"}
-    logs = db.scalars(select(JudgeLog).where(JudgeLog.submission_id == submission.id).order_by(JudgeLog.id)).all()
+    logs = db.scalars(select(JudgeLog).where(JudgeLog.submission_id == submission.id).order_by(JudgeLog.created_at)).all()
     if full:
         audit(db, user.id, "VIEW_FULL_JUDGE_LOG", "submission", submission.id)
         db.commit()

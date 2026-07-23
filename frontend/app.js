@@ -3,6 +3,8 @@ const state = {
   problems: [],
   problemFilter: "all",
   problemSearch: "",
+  judgeLogFilters: {},
+  judgeLogs: [],
   page: 1,
 };
 const app = document.querySelector("#app"),
@@ -61,7 +63,7 @@ async function init() {
 }
 function renderChrome() {
   const routeName = location.hash.split("/")[1] || "problems";
-  const items = state.user ? [["problems", "题库"], ["submissions", "提交记录"], ...( (state.user.role === "admin" || state.user.role === "teacher") ? [["manage", "题目维护"]] : []), ...(state.user.role === "admin" ? [["admin", "管理中心"]] : [] )] : [];
+  const items = state.user ? [["problems", "题库"], ["submissions", "提交记录"], ...( (state.user.role === "admin" || state.user.role === "teacher") ? [["logs", "判题日志"], ["manage", "题目维护"]] : []), ...(state.user.role === "admin" ? [["admin", "管理中心"]] : [] )] : [];
   nav.innerHTML = items.map(([key, label]) => html`<a class="nav-link ${routeName === key ? "active" : ""}" href="#/${key}">${label}</a>`).join("");
   actions.innerHTML = state.user
     ? html`<div class="user-chip">
@@ -80,6 +82,7 @@ async function route() {
     else if (parts[0] === "problems") await renderProblems();
     else if (parts[0] === "submissions" && parts[1]) await renderSubmission(parts[1]);
     else if (parts[0] === "submissions") await renderSubmissions();
+    else if (parts[0] === "logs" && ["teacher", "admin"].includes(state.user.role)) await renderJudgeLogs();
     else if (parts[0] === "admin" && state.user.role === "admin") await renderAdmin();
     else if (parts[0] === "manage" && ["teacher", "admin"].includes(state.user.role)) await renderManage();
     else location.hash = "#/problems";
@@ -162,8 +165,10 @@ async function renderProblem(id) {
     <div class="detail-layout" style="margin-top:16px">
       <article class="card problem-content">
         <header class="problem-header">
-          <span class="problem-id">${esc(p.id)}</span>
-          <h1>${esc(p.title)}</h1>
+          <div class="problem-title-row">
+            <div><span class="problem-id">${esc(p.id)}</span><h1>${esc(p.title)}</h1></div>
+            <button class="button small" data-action="problem-submissions" data-id="${esc(p.id)}">查看本题提交</button>
+          </div>
           <div class="problem-meta">${difficulty(p.difficulty)}<span class="meta">时间限制 ${p.time_limit}s</span><span class="meta">内存限制 ${p.memory_limit}MB</span>${(p.tags || []).map((t) => html`<span class="tag">${esc(t)}</span>`).join("")}</div>
         </header>
         <div class="prose">
@@ -252,8 +257,7 @@ async function renderSubmissions() {
   </div>`;
 }
 async function renderSubmission(id) {
-  const [detail, logData] = await Promise.all([api("/submissions/" + id), api("/submissions/" + id + "/logs")]);
-  const cases = logData.cases || [];
+  const detail = await api("/submissions/" + id);
   app.innerHTML = html`<div class="page">
     <a class="link" href="#/submissions">← 返回提交记录</a>
     <div class="section-head">
@@ -261,10 +265,10 @@ async function renderSubmission(id) {
         <span class="eyebrow">Submission Detail</span>
         <h1>提交 ${esc(id.slice(0, 8))}</h1>
       </div>
-      <div class="section-actions">
+      <div class="submission-detail-actions">
         ${verdict(detail.result, detail.status)}
-        ${["teacher", "admin"].includes(state.user.role) && ["finished", "failed"].includes(detail.status)
-          ? html`<button class="button primary" data-action="rejudge" data-id="${esc(detail.id)}">重新评测</button>`
+        ${["teacher", "admin"].includes(state.user.role)
+          ? html`<button class="button" data-action="rejudge" data-submission="${esc(id)}" ${["finished", "failed"].includes(detail.status) ? "" : "disabled"}>重新判题</button>`
           : ""}
       </div>
     </div>
@@ -282,32 +286,9 @@ async function renderSubmission(id) {
         <pre class="codebox">${esc(detail.source_code)}</pre>
       </section>
       <section class="card problem-content">
-        <h3>测试点 (${cases.length})</h3>
-        <div class="case-grid">
-          ${cases.length
-            ? cases
-                .map(
-                  (c) =>
-                    html`<div class="case">
-                      <div class="case-top">
-                        <span><b>${esc(c.case_id)}</b>${verdict(c.result)}</span>
-                        ${state.user.role === "student" && c.is_hidden ? "" : html`<button class="button small ghost" data-action="toggle-case">详情</button>`}
-                      </div>
-                      <div class="meta">得分 ${c.score} · ${c.time_used ?? 0}s${c.message ? " · " + c.message : ""}</div>
-                      <div class="case-detail" hidden>
-                        <div class="detail-label">输入</div>
-                        <pre>${esc(c.input_data)}</pre>
-                        <div class="detail-label">预期输出</div>
-                        <pre>${esc(c.expected_output)}</pre>
-                        <div class="detail-label">实际输出</div>
-                        <pre>${esc(c.stdout)}</pre>
-                        ${c.stderr ? html`<div class="detail-label">错误信息</div><pre>${esc(c.stderr)}</pre>` : ""}
-                      </div>
-                    </div>`,
-                )
-                .join("")
-            : '<p class="meta">评测尚未生成测试点记录。</p>'}
-        </div>
+        <h3>判题日志</h3>
+        <p class="meta">查看各测试点的判题结果、运行时间、标准输出及错误信息。</p>
+        <button class="button primary" data-action="submission-logs" data-submission="${esc(id)}">查看日志</button>
       </section>
     </div>
   </div>`;
@@ -315,6 +296,135 @@ async function renderSubmission(id) {
     setTimeout(() => {
       if (location.hash.endsWith(id)) renderSubmission(id);
     }, 1800);
+}
+function logCasesMarkup(cases) {
+  return cases.length
+    ? html`<div class="case-grid">${cases
+        .map(
+          (c) => html`<div class="case">
+            <div class="case-top">
+              <span><b>${esc(c.case_id)}</b> ${verdict(c.result)}</span>
+              <button class="button small ghost" data-action="toggle-case">详情</button>
+            </div>
+            <div class="meta">得分 ${c.score} · ${c.time_used ?? 0}s${c.exit_code != null ? ` · 退出码 ${esc(c.exit_code)}` : ""}${c.message ? " · " + esc(c.message) : ""}</div>
+            <div class="case-detail" hidden>
+              ${c.input_data !== undefined ? html`<div class="detail-label">输入</div><pre>${esc(c.input_data)}</pre>` : ""}
+              ${c.expected_output !== undefined ? html`<div class="detail-label">预期输出</div><pre>${esc(c.expected_output)}</pre>` : ""}
+              ${c.stdout !== undefined ? html`<div class="detail-label">实际输出</div><pre>${esc(c.stdout)}</pre>` : ""}
+              ${c.stderr ? html`<div class="detail-label">错误信息</div><pre>${esc(c.stderr)}</pre>` : ""}
+            </div>
+          </div>`,
+        )
+        .join("")}</div>`
+    : html`<div class="empty compact">评测尚未生成日志。</div>`;
+}
+async function openSubmissionLogs(submissionId) {
+  openModal(
+    html`<div class="modal-head"><div><span class="eyebrow">Judge Logs</span><h2>提交 ${esc(submissionId.slice(0, 8))}</h2></div><button class="close" data-close>×</button></div>
+      <div class="modal-loading"><div class="skeleton"></div><div class="skeleton"></div></div>`,
+    true,
+  );
+  const data = await api(`/submissions/${encodeURIComponent(submissionId)}/logs`);
+  const cases = data.cases || [];
+  openModal(
+    html`<div class="modal-head"><div><span class="eyebrow">Judge Logs</span><h2>提交 ${esc(submissionId.slice(0, 8))} 的判题日志</h2><p class="meta">共 ${cases.length} 个测试点</p></div><button class="close" data-close aria-label="关闭">×</button></div>
+      ${logCasesMarkup(cases)}`,
+    true,
+  );
+}
+async function openProblemSubmissions(problemId, page = 1) {
+  openModal(
+    html`<div class="modal-head"><div><span class="eyebrow">Submissions</span><h2>${esc(problemId)} 的提交记录</h2></div><button class="close" data-close>×</button></div>
+      <div class="modal-loading"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div>`,
+    true,
+  );
+  const data = await api(`/submissions?problem_id=${encodeURIComponent(problemId)}&page=${page}&page_size=20`);
+  const canManage = ["teacher", "admin"].includes(state.user.role);
+  const totalPages = Math.max(1, Math.ceil(data.total / data.page_size));
+  openModal(
+    html`<div class="modal-head">
+        <div><span class="eyebrow">Submissions</span><h2>${esc(problemId)} 的提交记录</h2><p class="meta">共 ${data.total} 条记录</p></div>
+        <button class="close" data-close aria-label="关闭">×</button>
+      </div>
+      <div class="table-wrap submission-window">
+        <table class="data-table">
+          <thead><tr><th>提交编号</th>${canManage ? "<th>用户</th>" : ""}<th>状态</th><th>得分</th><th>用时</th><th>提交时间</th><th>操作</th></tr></thead>
+          <tbody>
+            ${data.items.length
+              ? data.items
+                  .map(
+                    (s) => html`<tr>
+                      <td><button class="link link-button mono" data-action="view-submission" data-submission="${esc(s.id)}">${esc(s.id.slice(0, 8))}</button></td>
+                      ${canManage ? html`<td class="mono">${esc(s.user_id.slice(0, 8))}</td>` : ""}
+                      <td>${verdict(s.result, s.status)}</td>
+                      <td><b>${s.score ?? 0}</b></td>
+                      <td>${s.total_time != null ? s.total_time.toFixed(3) + "s" : "—"}</td>
+                      <td class="meta">${fmt(s.created_at)}</td>
+                      <td><button class="button small" data-action="view-submission" data-submission="${esc(s.id)}">查看详情</button></td>
+                    </tr>`,
+                  )
+                  .join("")
+              : html`<tr><td colspan="${canManage ? 7 : 6}" class="empty compact">本题暂无提交记录</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+      ${totalPages > 1
+        ? html`<div class="modal-pagination">
+            <button class="button small" data-action="problem-submissions" data-id="${esc(problemId)}" data-page="${page - 1}" ${page <= 1 ? "disabled" : ""}>上一页</button>
+            <span class="meta">第 ${page} / ${totalPages} 页</span>
+            <button class="button small" data-action="problem-submissions" data-id="${esc(problemId)}" data-page="${page + 1}" ${page >= totalPages ? "disabled" : ""}>下一页</button>
+          </div>`
+        : ""}`,
+    true,
+  );
+}
+async function renderJudgeLogs(page = 1) {
+  const params = new URLSearchParams({ page: String(page), page_size: "20" });
+  Object.entries(state.judgeLogFilters).forEach(([key, value]) => value && params.set(key, value));
+  const data = await api("/logs?" + params.toString());
+  state.judgeLogs = data.items;
+  const filters = state.judgeLogFilters;
+  const totalPages = Math.max(1, Math.ceil(data.total / data.page_size));
+  app.innerHTML = html`<div class="page">
+    <div class="section-head"><div><span class="eyebrow">Judge Logs</span><h1>判题日志</h1><p>查看并筛选所有提交的测试点运行日志</p></div></div>
+    <form id="judge-log-filter" class="card log-filter">
+      <div class="field"><label>提交编号</label><input name="submission_id" value="${esc(filters.submission_id || "")}" placeholder="Submission ID" /></div>
+      <div class="field"><label>题目编号</label><input name="problem_id" value="${esc(filters.problem_id || "")}" placeholder="Problem ID" /></div>
+      <div class="field"><label>用户编号</label><input name="user_id" value="${esc(filters.user_id || "")}" placeholder="User ID" /></div>
+      <div class="field"><label>结果</label><select name="result">
+        <option value="">全部</option>
+        ${["AC", "WA", "TLE", "MLE", "RE", "SE"].map((v) => html`<option value="${v}" ${filters.result === v ? "selected" : ""}>${v}</option>`).join("")}
+      </select></div>
+      <button class="button primary" type="submit">筛选</button>
+      <button class="button" type="button" data-action="reset-log-filter">重置</button>
+    </form>
+    <div class="card table-wrap">
+      <table class="data-table log-table">
+        <thead><tr><th>时间</th><th>提交编号</th><th>测试点</th><th>结果</th><th>得分</th><th>用时</th><th>退出码</th><th>操作</th></tr></thead>
+        <tbody>${data.items.length
+          ? data.items.map((item) => html`<tr>
+              <td class="meta">${fmt(item.created_at)}</td>
+              <td><button class="link link-button mono" data-action="view-submission" data-submission="${esc(item.submission_id)}">${esc(item.submission_id.slice(0, 8))}</button></td>
+              <td class="mono">${esc(item.case_id)}</td><td>${verdict(item.result)}</td><td>${item.score}</td><td>${item.time_used ?? 0}s</td><td>${item.exit_code ?? "—"}</td>
+              <td><button class="button small" data-action="judge-log-detail" data-log="${esc(item.id)}">查看详情</button></td>
+            </tr>`).join("")
+          : '<tr><td colspan="8" class="empty compact">没有匹配的判题日志</td></tr>'}</tbody>
+      </table>
+    </div>
+    <div class="page-pagination">
+      <button class="button small" data-action="judge-logs-page" data-page="${page - 1}" ${page <= 1 ? "disabled" : ""}>上一页</button>
+      <span class="meta">共 ${data.total} 条 · 第 ${page} / ${totalPages} 页</span>
+      <button class="button small" data-action="judge-logs-page" data-page="${page + 1}" ${page >= totalPages ? "disabled" : ""}>下一页</button>
+    </div>
+  </div>`;
+}
+function openJudgeLogDetail(log) {
+  openModal(
+    html`<div class="modal-head"><div><span class="eyebrow">Judge Log Detail</span><h2>测试点 ${esc(log.case_id)}</h2></div><button class="close" data-close aria-label="关闭">×</button></div>
+      <div class="log-summary"><span>${verdict(log.result)}</span><span class="meta">得分 ${log.score}</span><span class="meta">用时 ${log.time_used ?? 0}s</span><span class="meta">退出码 ${log.exit_code ?? "—"}</span></div>
+      ${logCasesMarkup([log])}`,
+    true,
+  );
 }
 async function renderManage() {
   const data = await api("/problems?page=1&page_size=100");
@@ -347,6 +457,7 @@ async function renderManage() {
                   <td>${difficulty(p.difficulty)}</td>
                   <td>${(p.test_cases || []).length}</td>
                   <td>
+                    <button class="button small" data-action="problem-submissions" data-id="${esc(p.id)}">提交记录</button>
                     <button class="button small" data-action="problem-form" data-id="${esc(p.id)}">编辑</button>
                     <button class="button small danger" data-action="delete-problem" data-id="${esc(p.id)}">删除</button>
                   </td>
@@ -358,8 +469,9 @@ async function renderManage() {
     </div>
   </div>`;
 }
-async function renderAdmin() {
-  const [users, backups] = await Promise.all([api("/users?page=1&page_size=100"), api("/admin/backups")]);
+async function renderAdmin(auditPage = 1) {
+  const [users, backups, audits] = await Promise.all([api("/users?page=1&page_size=100"), api("/admin/backups"), api(`/logs/audit-logs?page=${auditPage}&page_size=20`)]);
+  const auditPages = Math.max(1, Math.ceil(audits.total / audits.page_size));
   app.innerHTML = html`<div class="page">
     <div class="section-head">
       <div>
@@ -396,8 +508,14 @@ async function renderAdmin() {
                   <td>${u.is_active ? '<span class="verdict AC">正常</span>' : '<span class="verdict WA">已禁用</span>'}</td>
                   <td class="meta">${fmt(u.created_at)}</td>
                   <td>
-                    <button class="button small" data-action="" data-user="">
-                      点击设置
+                    <button
+                      type="button"
+                      class="button small"
+                      data-action="edit-user"
+                      data-user="${esc(JSON.stringify(u))}"
+                      aria-label="设置用户 ${esc(u.username)}"
+                    >
+                      设置
                     </button>
                   </td>
                 </tr>`,
@@ -426,7 +544,7 @@ async function renderAdmin() {
                       <td>${fmt(b.created_at)}</td>
                       <td>
                         <button class="button small" data-action="restore-backup" data-backup="${esc(b.id)}">
-                          点击恢复备份
+                          恢复备份
                         </button>
                       </td>
                     </tr>`,
@@ -436,6 +554,28 @@ async function renderAdmin() {
         </tbody>
         
       </table>
+    </div>
+    <div class="section-head"><div><h2>审计日志</h2><p>管理员操作及敏感日志访问记录</p></div></div>
+    <div class="card table-wrap">
+      <table class="data-table audit-table">
+        <thead><tr><th>时间</th><th>操作人</th><th>动作</th><th>目标类型</th><th>目标</th><th>状态</th><th>详情</th></tr></thead>
+        <tbody>${audits.items.length
+          ? audits.items.map((item) => html`<tr>
+              <td class="meta">${fmt(item.created_at)}</td>
+              <td class="mono">${esc(item.operator_id.slice(0, 8))}</td>
+              <td><b>${esc(item.action)}</b></td>
+              <td>${esc(item.target_type)}</td>
+              <td class="mono">${esc(item.target_id)}</td>
+              <td>${item.success ? '<span class="verdict AC">成功</span>' : '<span class="verdict WA">失败</span>'}</td>
+              <td class="meta">${esc(item.detail || "—")}</td>
+            </tr>`).join("")
+          : '<tr><td colspan="7" class="empty compact">暂无审计日志</td></tr>'}</tbody>
+      </table>
+    </div>
+    <div class="page-pagination">
+      <button class="button small" data-action="audit-page" data-page="${auditPage - 1}" ${auditPage <= 1 ? "disabled" : ""}>上一页</button>
+      <span class="meta">共 ${audits.total} 条 · 第 ${auditPage} / ${auditPages} 页</span>
+      <button class="button small" data-action="audit-page" data-page="${auditPage + 1}" ${auditPage >= auditPages ? "disabled" : ""}>下一页</button>
     </div>
   </div>`;
 }
@@ -490,6 +630,8 @@ async function openProblemForm(id) {
             is_hidden: true,
           },
         ],
+        judge_mode: "standard",
+        spj: "",
       };
   openModal(
     html`<div class="modal-head">
@@ -523,7 +665,18 @@ async function openProblemForm(id) {
         </div>
         <div class="field"><label>样例（JSON 数组）</label><textarea name="samples" class="mono" required></textarea></div>
         <div class="field"><label>测试点（JSON 数组，分数总和必须为 100）</label><textarea name="test_cases" class="mono" style="min-height:180px" required></textarea></div>
-        <div class="modal-actions"><button type="button" class="button" data-close>取消</button><button class="button primary">保存题目</button></div>
+        <div class="form-row">
+          <div class="field">
+            <label>评测模式</label><select name="judge_mode">
+              <option value="standard" ${p.judge_mode === "standard" ? "selected" : ""}>standard（逐行忽略行末空白）</option>
+              <option value="strict" ${p.judge_mode === "strict" ? "selected" : ""}>strict（严格逐字符匹配）</option>
+              <option value="spj" ${p.judge_mode === "spj" ? "selected" : ""}>spj（自定义评测）</option>
+            </select>
+          </div>
+          <div class="field"><label>提示</label><span class="hint">选择 spj 时需在下方填写 special judge 代码</span></div>
+        </div>
+        <div class="field"><label>Special Judge 代码（仅 spj 模式必填，需定义 judge(input, output, expected) 返回 dict）</label><textarea name="spj" class="mono" style="min-height:160px">${esc(p.spj || "")}</textarea></div>
+        <div class="modal-actions"><button type="button" class="button" data-close>取消</button><button type="submit" class="button primary">保存题目</button></div>
       </form>`,
     true,
   );
@@ -533,6 +686,29 @@ async function openProblemForm(id) {
   form.elements.output_description.value = p.output_description;
   form.elements.samples.value = JSON.stringify(p.samples, null, 2);
   form.elements.test_cases.value = JSON.stringify(p.test_cases, null, 2);
+  form.addEventListener("submit", submitProblemForm);
+}
+async function submitProblemForm(e) {
+  e.preventDefault();
+  const form = e.currentTarget;
+  const v = Object.fromEntries(new FormData(form));
+  const body = {
+    ...v,
+    time_limit: Number(v.time_limit),
+    memory_limit: Number(v.memory_limit),
+    tags: v.tags
+      .split(/[,，]/)
+      .map((x) => x.trim())
+      .filter(Boolean),
+    samples: JSON.parse(v.samples),
+    test_cases: JSON.parse(v.test_cases),
+  };
+  const original = form.dataset.original;
+  await api("/problems" + (original ? "/" + encodeURIComponent(original) : ""), {
+    method: original ? "PUT" : "POST",
+    body: JSON.stringify(body),
+  });
+  toast("题目已保存");
 }
 function updateCodeSize() {
   const ed = document.querySelector("#code-editor"),
@@ -576,6 +752,47 @@ document.addEventListener("click", async (e) => {
       return;
     }
     if (action === "login" || action === "register") openAuth(action);
+    if (action === "submission-logs") {
+      await openSubmissionLogs(el.dataset.submission);
+      return;
+    }
+    if (action === "judge-log-detail") {
+      const log = state.judgeLogs.find((item) => item.id === el.dataset.log);
+      if (!log) throw new Error("日志不存在或页面已更新");
+      openJudgeLogDetail(log);
+      return;
+    }
+    if (action === "judge-logs-page") {
+      await renderJudgeLogs(Number(el.dataset.page));
+      return;
+    }
+    if (action === "reset-log-filter") {
+      state.judgeLogFilters = {};
+      await renderJudgeLogs();
+      return;
+    }
+    if (action === "audit-page") {
+      await renderAdmin(Number(el.dataset.page));
+      return;
+    }
+    if (action === "problem-submissions") {
+      await openProblemSubmissions(el.dataset.id, Number(el.dataset.page || 1));
+      return;
+    }
+    if (action === "view-submission") {
+      closeModal();
+      location.hash = "#/submissions/" + encodeURIComponent(el.dataset.submission);
+      return;
+    }
+    if (action === "rejudge") {
+      if (!confirm(`确定重新评测提交 ${el.dataset.submission.slice(0, 8)} 吗？原评测结果将被替换。`)) return;
+      el.disabled = true;
+      el.textContent = "已进入队列";
+      await api(`/submissions/${encodeURIComponent(el.dataset.submission)}/rejudge`, { method: "POST" });
+      toast("已进入重新评测队列");
+      await renderSubmission(el.dataset.submission);
+      return;
+    }
     if (action === "logout") {
       await api("/auth/logout", { method: "POST" });
       state.user = null;
@@ -640,7 +857,7 @@ document.addEventListener("click", async (e) => {
             <h2>设置用户 · ${esc(u.username)}</h2>
             <button class="close" data-close>×</button>
           </div>
-          <form id="user-form" data-id="${u.id}">
+          <form id="user-form" data-id="${esc(u.id)}">
             <div class="field">
               <label>角色</label><select name="role">
                 <option value="student" ${u.role === "student" ? "selected" : ""}>学生</option>
@@ -651,7 +868,7 @@ document.addEventListener("click", async (e) => {
             <div class="field">
               <label><input type="checkbox" name="is_active" ${u.is_active ? "checked" : ""} style="width:auto" /> 账号启用</label>
             </div>
-            <div class="modal-actions"><button type="button" class="button" data-close>取消</button><button class="button primary">保存设置</button></div>
+            <div class="modal-actions"><button type="button" class="button" data-close>取消</button><button type="submit" class="button primary">保存设置</button></div>
           </form>`,
       );
     }
@@ -661,11 +878,17 @@ document.addEventListener("click", async (e) => {
   }
 });
 document.addEventListener("submit", async (e) => {
+  const form = e.target;
+  if (form.matches("#problem-form")) return;
   e.preventDefault();
-  const form = e.target,
-    button = form.querySelector("[type=submit],button:not([type])");
+  const button = form.querySelector("[type=submit],button:not([type])");
   if (button) button.disabled = true;
   try {
+    if (form.id === "judge-log-filter") {
+      state.judgeLogFilters = Object.fromEntries([...new FormData(form)].filter(([, value]) => String(value).trim()));
+      await renderJudgeLogs();
+      return;
+    }
     if (form.id === "auth-form") {
       const values = Object.fromEntries(new FormData(form));
       if (form.dataset.mode === "register")
@@ -681,32 +904,6 @@ document.addEventListener("submit", async (e) => {
       renderChrome();
       location.hash = "#/problems";
       toast(form.dataset.mode === "register" ? "注册成功，欢迎加入" : "登录成功");
-    }
-    if (form.id === "problem-form") {
-      const v = Object.fromEntries(new FormData(form));
-      let samples, test_cases;
-      try {
-        samples = JSON.parse(v.samples);
-        test_cases = JSON.parse(v.test_cases);
-      } catch {
-        throw new Error("样例或测试点不是有效的 JSON");
-      }
-      const body = {
-        ...v,
-        time_limit: Number(v.time_limit),
-        memory_limit: Number(v.memory_limit),
-        tags: v.tags
-          .split(/[,，]/)
-          .map((x) => x.trim())
-          .filter(Boolean),
-        samples,
-        test_cases,
-      };
-      const original = form.dataset.original;
-      await api("/problems" + (original ? "/" + encodeURIComponent(original) : ""), { method: original ? "PUT" : "POST", body: JSON.stringify(body) });
-      closeModal();
-      toast("题目已保存");
-      renderManage();
     }
     if (form.id === "user-form") {
       const fd = new FormData(form);

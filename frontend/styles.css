@@ -279,6 +279,12 @@ body {
     font-size: 14px
 }
 
+.submission-detail-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px
+}
+
 .card {
     background: rgba(255, 255, 255, .94);
     border: 1px solid var(--line);
@@ -459,6 +465,13 @@ body {
     font-size: 29px
 }
 
+.problem-title-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px
+}
+
 .problem-meta {
     display: flex;
     gap: 18px;
@@ -617,7 +630,78 @@ body {
 }
 
 .modal.wide {
-    width: min(780px, 100%)
+    width: min(980px, 100%)
+}
+
+.modal-loading .skeleton {
+    border-radius: 10px;
+    margin-bottom: 8px
+}
+
+.submission-window {
+    margin: 0 -8px
+}
+
+.submission-window .data-table {
+    min-width: 820px
+}
+
+.link-button {
+    appearance: none;
+    border: 0;
+    padding: 0;
+    background: transparent;
+    cursor: pointer;
+    font: inherit
+}
+
+.empty.compact {
+    padding: 42px 20px
+}
+
+.modal-pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 14px;
+    margin-top: 18px
+}
+
+.page-pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 14px;
+    margin-top: 18px
+}
+
+.log-filter {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(150px, 1fr)) auto auto;
+    gap: 12px;
+    align-items: end;
+    padding: 16px;
+    margin-bottom: 16px
+}
+
+.log-filter .field {
+    margin: 0
+}
+
+.log-table,
+.audit-table {
+    min-width: 900px
+}
+
+.log-summary {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+    border-radius: 12px;
+    background: #f7f9fc
 }
 
 .modal-head {
@@ -657,6 +741,14 @@ body {
     resize: vertical
 }
 
+.field .hint {
+    display: block;
+    font-size: 12px;
+    color: var(--muted, #8a8f98);
+    line-height: 1.5;
+    margin-top: 2px
+}
+
 .form-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -667,7 +759,11 @@ body {
     display: flex;
     justify-content: flex-end;
     gap: 10px;
-    margin-top: 22px
+    position: sticky;
+    bottom: -30px;
+    margin: 22px 0 -30px;
+    padding: 16px 0 30px;
+    background: white
 }
 
 .auth-switch {
@@ -768,5 +864,29 @@ body {
     from {
         transform: translateY(8px);
         opacity: 0
+    }
+}
+
+@media (max-width: 600px) {
+    .problem-title-row {
+        flex-direction: column
+    }
+
+    .problem-title-row .button {
+        width: 100%
+    }
+
+    .modal {
+        padding: 22px 18px
+    }
+
+    .log-filter {
+        grid-template-columns: 1fr
+    }
+}
+
+@media (min-width: 601px) and (max-width: 1000px) {
+    .log-filter {
+        grid-template-columns: repeat(2, minmax(160px, 1fr))
     }
 }

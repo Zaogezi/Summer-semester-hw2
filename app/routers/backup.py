@@ -44,6 +44,15 @@ async def restore_backup(backup_id: str, db: Session = Depends(get_db), user: Us
     db.close()
     engine.dispose()
     replacement = DB_PATH.with_suffix(".restore")
-    shutil.copy2(database, replacement)
-    replacement.replace(DB_PATH)
+    rollback = DB_PATH.with_suffix(".rollback")
+    shutil.copy2(DB_PATH, rollback)
+    try:
+        shutil.copy2(database, replacement)
+        replacement.replace(DB_PATH)
+    except Exception:
+        rollback.replace(DB_PATH)
+        raise
+    finally:
+        replacement.unlink(missing_ok=True)
+        rollback.unlink(missing_ok=True)
     return response(message="备份已恢复，请重新登录")

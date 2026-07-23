@@ -15,6 +15,7 @@ from app.services.auth import password_hash
 from app.utils.common import time_now
 from app.utils.common import response
 
+SECRET_KEY = "9f3c7a1e5b4d2f8c6a0e7b3d5f9c2a1e8b4d6f3c7a9e2b5d8f1c4a7e3b6d9f2"
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
@@ -32,7 +33,7 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="Light OJ", lifespan=lifespan)
-app.add_middleware(SessionMiddleware, secret_key="secret-key") # to be replaced
+app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
 
 
 @app.exception_handler(HTTPException)
@@ -50,4 +51,14 @@ async def validation_error(_: Request, exc: RequestValidationError):
 
 app.include_router(router)
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
+
+
+@app.middleware("http")
+async def disable_static_cache(request: Request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/app.js") or request.url.path.startswith("/styles.css"):
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    return response
+
+
 app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
