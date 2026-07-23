@@ -3,7 +3,6 @@ __pycache__/
 .pytest_cache/
 tests/.runtime/
 .coverage
-data/*.db
 data/backups/
 temp/*
 !temp/.gitkeep

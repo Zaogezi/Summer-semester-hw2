@@ -9,7 +9,7 @@ from sqlalchemy import (Boolean,
                         String,
                         Text,)
 from sqlalchemy import CheckConstraint
-from sqlalchemy.orm import Mapped, mapped_column, validates
+from sqlalchemy.orm import Mapped, mapped_column
 
 from .database import Base
 from datetime import datetime

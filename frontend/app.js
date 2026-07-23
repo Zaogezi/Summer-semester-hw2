@@ -818,6 +818,13 @@ document.addEventListener("click", async (e) => {
       location.hash = "#/submissions/" + data.submission_id;
     }
     if (action === "problem-form") await openProblemForm(el.dataset.id);
+    if (action === "rejudge") {
+      el.disabled = true;
+      el.textContent = "提交中…";
+      await api(`/submissions/${encodeURIComponent(el.dataset.id)}/rejudge`, { method: "POST" });
+      toast("已进入重评队列");
+      renderSubmission(el.dataset.id);
+    }
     if (action === "delete-problem") {
       if (confirm(`确定删除题目 ${el.dataset.id}？此操作不可撤销。`)) {
         await api("/problems/" + el.dataset.id, { method: "DELETE" });
