@@ -631,6 +631,40 @@ def test_admin_creates_lists_and_restores_backup(
     assert restored.status_code == 200
     with db_session_factory() as db:
         assert db.get(Problem, "P1001") is not None
+    assert not (tmp_path / "test.rollback").exists()
+    assert not (tmp_path / "test.restore").exists()
+
+
+def test_restore_rolls_back_current_database_on_error(
+    client: TestClient,
+    problem_data: dict,
+    db_session_factory,
+    tmp_path: Path,
+    monkeypatch,
+):
+    create_problem(client, problem_data)
+    login(client, "admin", "admin12345")
+    backup_id = client.post("/api/admin/backups").json()["data"]["backup_id"]
+    assert client.delete("/api/problems/P1001").status_code == 200
+
+    replacement = tmp_path / "test.restore"
+    original_replace = Path.replace
+
+    def replace_then_fail(self: Path, target: Path):
+        result = original_replace(self, target)
+        if self == replacement:
+            raise OSError("simulated restore failure")
+        return result
+
+    monkeypatch.setattr(Path, "replace", replace_then_fail)
+
+    with pytest.raises(OSError, match="simulated restore failure"):
+        client.post(f"/api/admin/backups/{backup_id}/restore")
+
+    with db_session_factory() as db:
+        assert db.get(Problem, "P1001") is None
+    assert not (tmp_path / "test.rollback").exists()
+    assert not replacement.exists()
 
 
 def test_incomplete_backup_fails_without_changing_current_data(
