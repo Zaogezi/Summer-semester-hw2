@@ -3,7 +3,7 @@ __pycache__/
 .pytest_cache/
 tests/.runtime/
 .coverage
-data/backups/
+data/*
 temp/*
 !temp/.gitkeep
 !temp/.judge/
